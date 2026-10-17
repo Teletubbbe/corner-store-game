@@ -5,12 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Браузерная игра об управлении магазином у дома">
   <title>Магазин у дома</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
   <main class="game-shell" aria-label="Игра Магазин у дома">
     <section class="store" id="storeScene">
-      <div class="outside-sign">24 ЧАСА</div>
+      <div class="outside-sign" id="storeSign">ПРОДУКТЫ · 24 ЧАСА</div>
+
+      <header class="hud">
+        <div class="hud-stat day-badge"><span>СЕГОДНЯ</span><strong>День <b id="dayValue">1</b></strong></div>
+        <div class="hud-stat money"><span>В КАССЕ</span><strong id="cashValue">0 ₽</strong></div>
+        <div class="hud-actions">
+          <button class="small-button sound-button" id="soundButton" type="button">🔊 Музыка</button>
+          <button class="small-button" id="surveyButton" type="button">📋 Опрос · 450 ₽</button>
+          <button class="small-button" id="upgradesButton" type="button">🔧 Улучшения</button>
+          <button class="primary-button" id="startDayButton" type="button">Открыть магазин</button>
+          <button class="small-button hidden" id="speedButton" type="button">⏩ Ускорить ×3</button>
+        </div>
+      </header>
 
       <section class="forecast-panel" id="forecastPanel">
         <button class="panel-toggle" id="toggleForecast" type="button" aria-label="Свернуть сведения">⌃</button>
@@ -36,21 +48,10 @@
         </div>
       </section>
 
-      <header class="hud">
-        <div class="hud-stat"><span>День</span><strong id="dayValue">1</strong></div>
-        <div class="hud-stat money"><span>Касса</span><strong id="cashValue">0 ₽</strong></div>
-        <div class="hud-actions">
-          <button class="small-button" id="surveyButton" type="button">📋 Опрос · 450 ₽</button>
-          <button class="small-button" id="upgradesButton" type="button">🔧 Улучшения</button>
-          <button class="primary-button" id="startDayButton" type="button">Открыть магазин</button>
-          <button class="small-button hidden" id="speedButton" type="button">⏩ Ускорить ×3</button>
-        </div>
-      </header>
-
       <div class="wall-details" aria-hidden="true">
         <div class="poster">СВЕЖЕЕ<br><b>КАЖДЫЙ ДЕНЬ</b></div>
         <div class="clock"><span></span><i></i></div>
-        <div class="window"><div class="sky"></div><div class="building b1"></div><div class="building b2"></div></div>
+        <div class="window"><div class="sky"><i class="moon"></i><i class="stars">✦ · ✧</i></div><div class="building b1"></div><div class="building b2"></div></div>
       </div>
 
       <section class="shop-floor">
@@ -59,12 +60,17 @@
           <div id="warehouseContent" class="warehouse-content">Свободно</div>
         </aside>
 
+        <aside class="fridge hidden" id="fridgeCard" aria-label="Холодильник">
+          <div class="fridge-top"><span>❄</span> ХОЛОДИЛЬНИК</div>
+          <div class="fridge-slots" id="fridgeSlots"></div>
+        </aside>
+
         <div class="shelves" id="shelves" aria-label="Полки магазина"></div>
 
         <div class="checkout-zone">
-          <div class="cashier">
-            <div class="cashier-head">🙂</div>
-            <div class="cashier-body"></div>
+          <div class="cashier" id="cashierCharacter">
+            <div class="cashier-head"><span>•‿•</span></div>
+            <div class="cashier-body"><i class="seller-arm left"></i><i class="seller-arm right"></i><b class="apron">M</b></div>
             <span>Продавец</span>
           </div>
           <div class="counter">
@@ -107,7 +113,7 @@
   </div>
   <div class="toast" id="toast" role="status"></div>
 
-  <script src="logic.js"></script>
-  <script src="app.js"></script>
+  <script src="logic.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

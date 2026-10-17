@@ -44,6 +44,11 @@
     startingCash: 4500,
     dailyExpense: 420,
     surveyCost: 450,
+    fridgeUpgradeCost: 5200,
+    fridgeUnlockDay: 3,
+    signUpgradeCost: 6000,
+    signUnlockDay: 4,
+    signCustomerBonus: 0.25,
     shelfUpgradeCost: 7000,
     shelfUnlockDay: 6,
     startingShelves: 5,
@@ -78,6 +83,17 @@
     return { id: `shelf-${index + 1}`, productId: null, batches: [] };
   }
 
+  const CHILLED_PRODUCTS = ["milk", "eggs", "ready"];
+
+  function emptyFridge() {
+    return Object.fromEntries(CHILLED_PRODUCTS.map(id => [id, {
+      id: `fridge-${id}`,
+      productId: id,
+      batches: [],
+      refrigerated: true
+    }]));
+  }
+
   function createInitialState(seed) {
     const baseSeed = Number.isFinite(seed) ? seed : Date.now() % 2147483647;
     const state = {
@@ -88,6 +104,9 @@
       shelves: Array.from({ length: SETTINGS.startingShelves }, (_, index) => emptyShelf(index)),
       warehouse: null,
       upgradedShelf: false,
+      fridgeUnlocked: false,
+      fridge: emptyFridge(),
+      signUnlocked: false,
       surveyDay: null,
       surveyProfiles: [],
       running: false,
@@ -106,7 +125,8 @@
     if (eventRoll < 0.44) event = EVENTS[0];
     else event = EVENTS[integer(rng, 1, EVENTS.length - 1)];
     const base = integer(rng, 14, 25);
-    const exactCustomers = Math.max(7, Math.round(base * weather.factor * event.factor + integer(rng, -3, 3)));
+    const signFactor = state.signUnlocked ? 1 + SETTINGS.signCustomerBonus : 1;
+    const exactCustomers = Math.max(7, Math.round((base * weather.factor * event.factor + integer(rng, -3, 3)) * signFactor));
     const spread = exactCustomers > 30 ? 5 : 3;
     return {
       weatherId: weather.id,
@@ -125,6 +145,7 @@
     let total = 0;
     for (const shelf of state.shelves) if (shelf.productId === productId) total += shelfCount(shelf);
     if (state.warehouse && state.warehouse.productId === productId) total += shelfCount(state.warehouse);
+    if (state.fridge && state.fridge[productId]) total += shelfCount(state.fridge[productId]);
     return total;
   }
 
@@ -143,6 +164,43 @@
     else shelf.batches.push({ qty, age: 0 });
     state.cash -= cost;
     return { ok: true, cost };
+  }
+
+  function buyForFridge(state, productId, quantity) {
+    const product = PRODUCTS[productId];
+    const location = state.fridge && state.fridge[productId];
+    const qty = Math.max(0, Math.floor(quantity));
+    if (!state.fridgeUnlocked) return { ok: false, error: "Сначала купите холодильник" };
+    if (!CHILLED_PRODUCTS.includes(productId) || !location || !product || qty < 1) return { ok: false, error: "Этот товар нельзя положить в холодильник" };
+    if (state.running) return { ok: false, error: "Во время дня закупка закрыта" };
+    const cost = product.buy * qty;
+    if (cost > state.cash) return { ok: false, error: "Не хватает денег" };
+    const fresh = location.batches.find(batch => batch.age === 0);
+    if (fresh) fresh.qty += qty;
+    else location.batches.push({ qty, age: 0 });
+    state.cash -= cost;
+    return { ok: true, cost };
+  }
+
+  function removeOneFromShelf(state, shelfIndex) {
+    const shelf = state.shelves[shelfIndex];
+    if (!shelf || !shelf.productId || shelfCount(shelf) < 1) return { ok: false, error: "На полке ничего нет" };
+    if (state.running) return { ok: false, error: "Дождитесь закрытия магазина" };
+    shelf.batches.sort((a, b) => b.age - a.age);
+    shelf.batches[0].qty -= 1;
+    shelf.batches = shelf.batches.filter(batch => batch.qty > 0);
+    if (!shelf.batches.length) shelf.productId = null;
+    return { ok: true };
+  }
+
+  function removeOneFromFridge(state, productId) {
+    const location = state.fridge && state.fridge[productId];
+    if (!location || shelfCount(location) < 1) return { ok: false, error: "Отделение пусто" };
+    if (state.running) return { ok: false, error: "Дождитесь закрытия магазина" };
+    location.batches.sort((a, b) => b.age - a.age);
+    location.batches[0].qty -= 1;
+    location.batches = location.batches.filter(batch => batch.qty > 0);
+    return { ok: true };
   }
 
   function moveShelfToWarehouse(state, shelfIndex) {
@@ -179,12 +237,13 @@
   }
 
   function takeOne(state, productId) {
-    const shelf = state.shelves.find(item => item.productId === productId && shelfCount(item) > 0);
+    const shelf = state.shelves.find(item => item.productId === productId && shelfCount(item) > 0)
+      || (state.fridgeUnlocked && state.fridge && state.fridge[productId] && shelfCount(state.fridge[productId]) > 0 ? state.fridge[productId] : null);
     if (!shelf) return false;
     shelf.batches.sort((a, b) => b.age - a.age);
     shelf.batches[0].qty -= 1;
     shelf.batches = shelf.batches.filter(batch => batch.qty > 0);
-    if (!shelf.batches.length) {
+    if (!shelf.batches.length && !shelf.refrigerated) {
       shelf.productId = null;
     }
     return true;
@@ -245,16 +304,18 @@
 
   function ageAndSpoil(state) {
     const spoiled = {};
-    const locations = [...state.shelves, state.warehouse].filter(Boolean);
+    const fridgeLocations = state.fridgeUnlocked && state.fridge ? Object.values(state.fridge) : [];
+    const locations = [...state.shelves, state.warehouse, ...fridgeLocations].filter(Boolean);
     for (const location of locations) {
       if (!location.productId) continue;
       const product = PRODUCTS[location.productId];
       for (const batch of location.batches) batch.age += 1;
-      const expired = location.batches.filter(batch => batch.age >= product.shelfLife);
+      const storageLife = product.shelfLife * (location.refrigerated ? 2 : 1);
+      const expired = location.batches.filter(batch => batch.age >= storageLife);
       const qty = expired.reduce((sum, batch) => sum + batch.qty, 0);
       if (qty) spoiled[location.productId] = (spoiled[location.productId] || 0) + qty;
-      location.batches = location.batches.filter(batch => batch.age < product.shelfLife);
-      if (!location.batches.length) location.productId = null;
+      location.batches = location.batches.filter(batch => batch.age < storageLife);
+      if (!location.batches.length && !location.refrigerated) location.productId = null;
     }
     if (state.warehouse && !state.warehouse.productId) state.warehouse = null;
     return spoiled;
@@ -312,16 +373,41 @@
     return { ok: true };
   }
 
+  function buyFridgeUpgrade(state) {
+    if (state.fridgeUnlocked) return { ok: false, error: "Холодильник уже установлен" };
+    if (state.day < SETTINGS.fridgeUnlockDay) return { ok: false, error: "Холодильник откроется с третьего дня" };
+    if (state.cash < SETTINGS.fridgeUpgradeCost) return { ok: false, error: "Не хватает денег" };
+    state.cash -= SETTINGS.fridgeUpgradeCost;
+    state.fridgeUnlocked = true;
+    if (!state.fridge) state.fridge = emptyFridge();
+    return { ok: true };
+  }
+
+  function buySignUpgrade(state) {
+    if (state.signUnlocked) return { ok: false, error: "Вывеска уже установлена" };
+    if (state.day < SETTINGS.signUnlockDay) return { ok: false, error: "Вывеска откроется с четвёртого дня" };
+    if (state.cash < SETTINGS.signUpgradeCost) return { ok: false, error: "Не хватает денег" };
+    state.cash -= SETTINGS.signUpgradeCost;
+    state.signUnlocked = true;
+    const multiplier = 1 + SETTINGS.signCustomerBonus;
+    state.forecast.exactCustomers = Math.max(1, Math.round(state.forecast.exactCustomers * multiplier));
+    state.forecast.expectedMin = Math.max(1, Math.round(state.forecast.expectedMin * multiplier));
+    state.forecast.expectedMax = Math.max(state.forecast.expectedMin, Math.round(state.forecast.expectedMax * multiplier));
+    return { ok: true };
+  }
+
   function daysLeft(location) {
     if (!location || !location.productId || !location.batches.length) return null;
     const oldest = Math.max(...location.batches.map(batch => batch.age));
-    return Math.max(0, PRODUCTS[location.productId].shelfLife - oldest);
+    const storageLife = PRODUCTS[location.productId].shelfLife * (location.refrigerated ? 2 : 1);
+    return Math.max(0, storageLife - oldest);
   }
 
   return {
-    PRODUCTS, PROFILES, WEATHERS, EVENTS, SETTINGS,
+    PRODUCTS, PROFILES, WEATHERS, EVENTS, SETTINGS, CHILLED_PRODUCTS,
     createInitialState, createForecast, generateDayCustomers, serveCustomer, finishDay,
-    shelfCount, totalInventory, buyForShelf, moveShelfToWarehouse, moveWarehouseToShelf,
-    discardShelf, buySurvey, buyShelfUpgrade, daysLeft, mulberry32
+    shelfCount, totalInventory, buyForShelf, buyForFridge, moveShelfToWarehouse, moveWarehouseToShelf,
+    discardShelf, removeOneFromShelf, removeOneFromFridge, buySurvey, buyShelfUpgrade,
+    buyFridgeUpgrade, buySignUpgrade, daysLeft, mulberry32
   };
 });

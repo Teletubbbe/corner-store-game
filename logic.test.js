@@ -69,3 +69,31 @@ test("new shelf unlocks only after five completed days", () => {
   assert.equal(G.buyShelfUpgrade(state).ok, true);
   assert.equal(state.shelves.length, 6);
 });
+
+test("fridge accepts only chilled products and doubles storage time", () => {
+  const state = G.createInitialState(123);
+  state.day = 3;
+  state.cash = 20000;
+  assert.equal(G.buyFridgeUpgrade(state).ok, true);
+  assert.equal(G.buyForFridge(state, "milk", 2).ok, true);
+  assert.equal(G.buyForFridge(state, "bread", 1).ok, false);
+  state.fridge.milk.batches[0].age = G.PRODUCTS.milk.shelfLife;
+  G.finishDay(state, []);
+  assert.equal(G.shelfCount(state.fridge.milk), 2);
+});
+
+test("sign increases the current customer forecast", () => {
+  const state = G.createInitialState(123);
+  state.day = 4;
+  state.cash = 20000;
+  const before = state.forecast.exactCustomers;
+  assert.equal(G.buySignUpgrade(state).ok, true);
+  assert.ok(state.forecast.exactCustomers > before);
+});
+
+test("one product can be removed from a shelf without clearing the rest", () => {
+  const state = G.createInitialState(123);
+  G.buyForShelf(state, 0, "apples", 3);
+  assert.equal(G.removeOneFromShelf(state, 0).ok, true);
+  assert.equal(G.shelfCount(state.shelves[0]), 2);
+});
