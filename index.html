@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Браузерная игра об управлении магазином у дома">
+  <title>Магазин у дома</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="game-shell" aria-label="Игра Магазин у дома">
+    <section class="store" id="storeScene">
+      <div class="outside-sign">24 ЧАСА</div>
+
+      <section class="forecast-panel" id="forecastPanel">
+        <button class="panel-toggle" id="toggleForecast" type="button" aria-label="Свернуть сведения">⌃</button>
+        <div class="forecast-heading">
+          <span class="eyebrow">РАЙОН</span>
+          <strong id="districtName">У станции</strong>
+          <span id="districtDescription">Спальный район рядом с колледжем и офисами</span>
+        </div>
+        <div class="forecast-cards">
+          <div class="forecast-card">
+            <span>Погода</span>
+            <strong id="weatherValue">—</strong>
+          </div>
+          <div class="forecast-card event-card" id="eventCard" tabindex="0">
+            <span>Событие</span>
+            <strong id="eventValue">—</strong>
+            <div class="event-tip" id="eventTip" role="tooltip"></div>
+          </div>
+          <div class="forecast-card">
+            <span>Ожидается</span>
+            <strong id="customersValue">—</strong>
+          </div>
+        </div>
+      </section>
+
+      <header class="hud">
+        <div class="hud-stat"><span>День</span><strong id="dayValue">1</strong></div>
+        <div class="hud-stat money"><span>Касса</span><strong id="cashValue">0 ₽</strong></div>
+        <div class="hud-actions">
+          <button class="small-button" id="surveyButton" type="button">📋 Опрос · 450 ₽</button>
+          <button class="small-button" id="upgradesButton" type="button">🔧 Улучшения</button>
+          <button class="primary-button" id="startDayButton" type="button">Открыть магазин</button>
+          <button class="small-button hidden" id="speedButton" type="button">⏩ Ускорить ×3</button>
+        </div>
+      </header>
+
+      <div class="wall-details" aria-hidden="true">
+        <div class="poster">СВЕЖЕЕ<br><b>КАЖДЫЙ ДЕНЬ</b></div>
+        <div class="clock"><span></span><i></i></div>
+        <div class="window"><div class="sky"></div><div class="building b1"></div><div class="building b2"></div></div>
+      </div>
+
+      <section class="shop-floor">
+        <aside class="warehouse" id="warehouseCard" tabindex="0" aria-label="Склад">
+          <span class="warehouse-label">СКЛАД · 1 МЕСТО</span>
+          <div id="warehouseContent" class="warehouse-content">Свободно</div>
+        </aside>
+
+        <div class="shelves" id="shelves" aria-label="Полки магазина"></div>
+
+        <div class="checkout-zone">
+          <div class="cashier">
+            <div class="cashier-head">🙂</div>
+            <div class="cashier-body"></div>
+            <span>Продавец</span>
+          </div>
+          <div class="counter">
+            <div class="display" id="registerDisplay">0 ₽</div>
+            <div class="scanner"></div>
+            <div class="counter-front">КАССА</div>
+          </div>
+        </div>
+
+        <div class="door" aria-hidden="true"><span>ВХОД</span><i></i></div>
+        <div class="customer-path" aria-hidden="true"></div>
+        <div class="active-customer" id="activeCustomer" aria-live="polite"></div>
+
+        <section class="visitor-log" aria-label="Покупатели за день">
+          <div class="visitor-log-title">Сегодня заходили</div>
+          <div class="visitor-list" id="visitorList">
+            <span class="empty-visitors">Магазин ещё закрыт</span>
+          </div>
+        </section>
+      </section>
+
+      <div class="bottom-controls">
+        <span id="statusText">Подготовьте полки и откройте магазин</span>
+        <button class="ghost-button" id="resetButton" type="button">Начать заново</button>
+      </div>
+
+      <aside class="purchase-drawer" id="purchaseDrawer" aria-hidden="true">
+        <div class="drawer-header">
+          <div><span class="eyebrow">ЗАКУПКА</span><h2 id="drawerTitle">Полка</h2></div>
+          <button class="icon-button" id="closeDrawer" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div id="drawerBody"></div>
+      </aside>
+      <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    </section>
+  </main>
+
+  <div class="modal-layer hidden" id="modalLayer" role="dialog" aria-modal="true">
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="logic.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
